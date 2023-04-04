@@ -34,8 +34,7 @@ MultiPlatform2IPFS copy busybox:latest .`,
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		token := registry.GetToken(args[0])
-		registry.HeadManifestType(args[0], token)
+		registry.CopyImage(args[0])
 	},
 }
 
