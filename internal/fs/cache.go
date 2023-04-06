@@ -2,9 +2,12 @@ package fs
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 )
 
 type TokenStore struct {
@@ -20,11 +23,13 @@ const tokenPath = "cache/tokens.json"
 
 func GetCachedToken(repoName string) (bool, string, error) {
 	if pathExists(tokenPath) {
-		tokenExists, token := getTokenFromCache(repoName)
-		if tokenExists {
-			if tokenValid(token) {
-				return true, token, nil
-			}
+		token, err := getTokenFromCache(repoName)
+		if err != nil {
+			// Deal with this
+			log.Fatalln("DEAL WITH THIS")
+		}
+		if isTokenValid(repoName, token) {
+			return true, token, nil
 		}
 	} else {
 		if err := createTokenFile(); err != nil {
@@ -34,11 +39,6 @@ func GetCachedToken(repoName string) (bool, string, error) {
 	}
 
 	return false, "", nil
-	// Check if cache/token.txt exists
-	// 		if does not exist, return error
-	//		else do a HEAD request
-	//			if request unauthorized return error
-	//			else return token
 }
 
 func FillCache(repoName string, token string) error {
@@ -49,35 +49,14 @@ func FillCache(repoName string, token string) error {
 		}
 	}
 
-	// read File
-	file, err := os.ReadFile(tokenPath)
-	if err != nil {
-		log.Fatalln("The file " + tokenPath + " cannot be read.")
-		os.Exit(1)
-	}
-	var tokens TokenStore
-	json.Unmarshal(file, &tokens)
-	// Check if the repository exists in the file.
-	if len(tokens.Tokens) > 0 {
-		for _, repo := range tokens.Tokens {
-			if repoName == repo.Repository {
-				repo.Token = token // renew the token
-			} else {
-				addTokenToCache(repoName, token, &tokens)
-			}
-		}
+	tokens := readTokensFromCache()
+	repoExists, repoIndex := repositoryIsInCache(repoName, &tokens)
+	if repoExists {
+		tokens.Tokens[repoIndex].Token = token // renew the token
 	} else {
 		addTokenToCache(repoName, token, &tokens)
 	}
-
-	tokenStoreMarshalled, err := json.Marshal(tokens)
-	if err != nil {
-		log.Fatalln("The token could not updated.")
-	}
-	if err := os.WriteFile(tokenPath, tokenStoreMarshalled, 0644); err != nil {
-		log.Fatalln("Could not write to cache/tokens.json")
-	}
-
+	writeTokensToCache(tokens)
 	return nil
 }
 
@@ -86,6 +65,17 @@ func addTokenToCache(repoName string, token string, tokens *TokenStore) {
 	newToken := TokenItem{Repository: repoName, Token: token}
 	updatedTokens := append(tokens.Tokens, newToken)
 	tokens.Tokens = updatedTokens
+}
+
+func repositoryIsInCache(repoName string, tokens *TokenStore) (bool, int) {
+	if len(tokens.Tokens) > 0 {
+		for index, repo := range tokens.Tokens {
+			if repoName == repo.Repository {
+				return true, index
+			}
+		}
+	}
+	return false, -1
 }
 
 func pathExists(path string) bool {
@@ -106,10 +96,66 @@ func createTokenFile() error {
 	return nil
 }
 
-func getTokenFromCache(repoName string) (bool, string) {
-	return false, ""
+func getTokenFromCache(repoName string) (string, error) {
+	tokens := readTokensFromCache()
+	repoExists, repoIndex := repositoryIsInCache(repoName, &tokens)
+	if repoExists {
+		return tokens.Tokens[repoIndex].Token, nil
+	}
+	return "", errors.New("token could not be fetched from the cache")
 }
 
-func tokenValid(token string) bool {
-	return false
+func readTokensFromCache() TokenStore {
+	// read File
+	file, err := os.ReadFile(tokenPath)
+	if err != nil {
+		log.Fatalln("The file " + tokenPath + " cannot be read.")
+		os.Exit(1)
+	}
+	var tokens TokenStore
+	if err := json.Unmarshal(file, &tokens); err != nil {
+		log.Fatalln("Could not read the tokens from " + tokenPath)
+		os.Exit(1)
+	}
+
+	return tokens
+}
+
+func writeTokensToCache(tokens TokenStore) {
+	tokenStoreMarshalled, err := json.Marshal(tokens)
+	if err != nil {
+		log.Fatalln("The token could not updated.")
+	}
+	if err := os.WriteFile(tokenPath, tokenStoreMarshalled, 0644); err != nil {
+		log.Fatalln("Could not write to cache/tokens.json")
+	}
+
+}
+
+func isTokenValid(repoName string, token string) bool {
+	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
+		"application/vnd.docker.distribution.manifest.v2+json",
+		"application/vnd.docker.distribution.manifest.list.v2+json",
+		"application/vnd.docker.container.image.v1+json",
+		"application/vnd.docker.image.rootfs.diff.tar.gzip",
+		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
+		"application/vnd.docker.plugin.v1+json"}
+
+	url := "https://registry-1.docker.io/v2/library/" + repoName + "/manifests/latest"
+
+	client := &http.Client{}
+	req, _ := http.NewRequest("HEAD", url, nil)
+	req.Header.Set("Accept", strings.Join(acceptList[:], ", "))
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Non-OK HTTP status:", resp.StatusCode)
+		return false
+	}
+	return true
 }

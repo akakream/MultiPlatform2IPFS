@@ -28,8 +28,10 @@ func CopyImage(repoName string) {
 	if !cacheHit {
 		token = getToken(repoName)
 		fs.FillCache(repoName, token)
+		fmt.Println("New token for the repositoy " + repoName + " is fetched and stored.")
+	} else {
+		fmt.Println("Cached token for the repositoy " + repoName + " is being used.")
 	}
-	fmt.Println(token)
 	/*
 			fatManifest, fatManifestErr := getFatManifest(repoName, token)
 		    if fatManifestErr != nil {
