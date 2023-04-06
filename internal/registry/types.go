@@ -17,13 +17,12 @@ type FatManifest struct {
 			Architecture string `json:"architecture"`
 			Os           string `json:"os"`
 		} `json:"platform,omitempty"`
-		Size      int `json:"size"`
+		Size int `json:"size"`
 	} `json:"manifests"`
 	MediaType     string `json:"mediaType"`
 	SchemaVersion int    `json:"schemaVersion"`
 }
 
-	
 type Manifest struct {
 	SchemaVersion int    `json:"schemaVersion"`
 	MediaType     string `json:"mediaType"`

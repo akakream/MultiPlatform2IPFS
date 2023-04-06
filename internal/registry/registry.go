@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,8 +23,56 @@ var (
 )
 
 func CopyImage(repoName string) {
-	cacheHit, token, tokenCacheError := fs.GetCachedToken(repoName)
-	if tokenCacheError != nil {
+	token := getCachedOrNewToken(repoName)
+
+	fatManifest, err := getFatManifest(repoName, token)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fs.CreateDir("export")
+	fs.SaveJson(fatManifest, "export/manifestlist.json")
+
+	for _, manifestValue := range fatManifest.Manifests {
+		manifest, err := getManifest(repoName, manifestValue.Digest, token)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		fmt.Println(manifest)
+		fs.CreateDir("export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests")
+		fs.CreateDir("export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs")
+		fs.SaveJson(manifest, "export/"+manifestValue.Platform.Os+"/"+manifestValue.Platform.Architecture+"/manifests/latest")
+		stringManifest, err := json.Marshal(manifest)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		fs.SaveJson(manifest, "export/"+manifestValue.Platform.Os+"/"+manifestValue.Platform.Architecture+"/manifests/"+fs.Sha256izeString(string(stringManifest)))
+
+		config, err := getConfig(repoName, manifest.Config.Digest, token)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fs.SaveJson(config, "export/"+manifestValue.Platform.Os+"/"+manifestValue.Platform.Architecture+"/blobs/"+manifest.Config.Digest)
+
+		for _, layerValue := range manifest.Layers {
+			destinationFolder := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs"
+			tempDestination := destinationFolder + "/layer.tmp.tgz"
+			downloadLayer(repoName, layerValue.Digest, token, tempDestination)
+			layerSha256, err := fs.Sha256File(tempDestination)
+			if err != nil {
+				os.Exit(1)
+			}
+			destination := destinationFolder + "/sha:256" + layerSha256
+			if err := os.Rename(tempDestination, destination); err != nil {
+				os.Exit(1)
+			}
+		}
+	}
+}
+
+func getCachedOrNewToken(repoName string) string {
+	cacheHit, token, err := fs.GetCachedToken(repoName)
+	if err != nil {
 		os.Exit(1)
 	}
 	if !cacheHit {
@@ -32,41 +82,8 @@ func CopyImage(repoName string) {
 	} else {
 		fmt.Println("Cached token for the repositoy " + repoName + " is being used.")
 	}
-	/*
-			fatManifest, fatManifestErr := getFatManifest(repoName, token)
-		    if fatManifestErr != nil {
-		        fmt.Println(fatManifestErr)
-		    }
 
-		    fs.CreateDir("export")
-		    fs.SaveJson(fatManifest, "export/manifestlist.json")
-
-		    for _, manifestValue := range fatManifest.Manifests {
-		        manifest, manifestErr := getManifest(repoName, manifestValue.Digest, token)
-		        if manifestErr != nil {
-		            fmt.Println(manifestErr)
-		        }
-		        fmt.Println(manifest)
-		        fs.CreateDir("export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests")
-		        fs.CreateDir("export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs")
-		        fs.SaveJson(manifest, "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests/latest")
-		        stringManifest, stringManifestErr := json.Marshal(manifest)
-		        if stringManifestErr != nil {
-		            fmt.Println("Error")
-		        }
-		        fs.SaveJson(manifest, "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests/" + fs.Sha256izeString(string(stringManifest)))
-
-		        config, configErr := getConfig(repoName, manifest.Config.Digest, token)
-		        if configErr != nil {
-		            fmt.Println(configErr)
-		        }
-		        fmt.Println(config)
-
-		        for _, layerValue := range manifest.Layers {
-		            fmt.Println(layerValue)
-		        }
-		    }
-	*/
+	return token
 }
 
 func getToken(repoName string) string {
@@ -217,8 +234,7 @@ func getConfig(repoName string, digest string, token string) (Config, error) {
 	return config, nil
 }
 
-/*
-func getLayer(repoName string, digest string, token string) (string, error) {
+func downloadLayer(repoName string, digest string, token string, destination string) error {
 	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
 		"application/vnd.docker.distribution.manifest.v2+json",
 		"application/vnd.docker.distribution.manifest.list.v2+json",
@@ -241,19 +257,18 @@ func getLayer(repoName string, digest string, token string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Non-OK HTTP status:", resp.StatusCode)
-		return Config{}, ErrNonOKhttpStatus
+		return ErrNonOKhttpStatus
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	w.Write(body)
+	w.Close()
 
-	var config Config
-	if err := json.Unmarshal(body, &config); err != nil { // Parse []byte to the go struct pointer
-		fmt.Println("Can not unmarshal JSON")
-	}
-
-	return config, nil
+	ioutil.WriteFile(destination, b.Bytes(), os.ModePerm)
+	return nil
 }
-*/
