@@ -1,12 +1,10 @@
 package registry
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -38,21 +36,22 @@ func CopyImage(repoName string) {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Println(manifest)
-		fs.CreateDir("export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests")
-		fs.CreateDir("export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs")
-		fs.SaveJson(manifest, "export/"+manifestValue.Platform.Os+"/"+manifestValue.Platform.Architecture+"/manifests/latest")
+		manifestsFolderPath := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests"
+		blobsFolderPath := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs"
+		fs.CreateDir(manifestsFolderPath)
+		fs.CreateDir(blobsFolderPath)
+		fs.SaveJson(manifest, manifestsFolderPath+"/latest")
 		stringManifest, err := json.Marshal(manifest)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fs.SaveJson(manifest, "export/"+manifestValue.Platform.Os+"/"+manifestValue.Platform.Architecture+"/manifests/"+fs.Sha256izeString(string(stringManifest)))
+		fs.SaveJson(manifest, manifestsFolderPath+"/"+fs.Sha256izeString(string(stringManifest)))
 
 		config, err := getConfig(repoName, manifest.Config.Digest, token)
 		if err != nil {
 			fmt.Println(err)
 		}
-		fs.SaveJson(config, "export/"+manifestValue.Platform.Os+"/"+manifestValue.Platform.Architecture+"/blobs/"+manifest.Config.Digest)
+		fs.SaveJson(config, blobsFolderPath+"/"+manifest.Config.Digest)
 
 		for _, layerValue := range manifest.Layers {
 			destinationFolder := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs"
@@ -62,7 +61,7 @@ func CopyImage(repoName string) {
 			if err != nil {
 				os.Exit(1)
 			}
-			destination := destinationFolder + "/sha:256" + layerSha256
+			destination := destinationFolder + "/sha256:" + layerSha256
 			if err := os.Rename(tempDestination, destination); err != nil {
 				os.Exit(1)
 			}
@@ -73,7 +72,7 @@ func CopyImage(repoName string) {
 func getCachedOrNewToken(repoName string) string {
 	cacheHit, token, err := fs.GetCachedToken(repoName)
 	if err != nil {
-		os.Exit(1)
+		log.Fatalln(err)
 	}
 	if !cacheHit {
 		token = getToken(repoName)
@@ -98,7 +97,7 @@ func getToken(repoName string) string {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -142,7 +141,7 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 		return FatManifest{}, ErrManifestIsNotFat
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -182,7 +181,7 @@ func getManifest(repoName string, digest string, token string) (Manifest, error)
 		return Manifest{}, ErrNonOKhttpStatus
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -221,7 +220,7 @@ func getConfig(repoName string, digest string, token string) (Config, error) {
 		return Config{}, ErrNonOKhttpStatus
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -235,40 +234,29 @@ func getConfig(repoName string, digest string, token string) (Config, error) {
 }
 
 func downloadLayer(repoName string, digest string, token string, destination string) error {
-	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
-		"application/vnd.docker.distribution.manifest.v2+json",
-		"application/vnd.docker.distribution.manifest.list.v2+json",
-		"application/vnd.docker.container.image.v1+json",
-		"application/vnd.docker.image.rootfs.diff.tar.gzip",
-		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-		"application/vnd.docker.plugin.v1+json"}
-
 	url := "https://registry-1.docker.io/v2/library/" + repoName + "/blobs/" + digest
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Accept", strings.Join(acceptList[:], ", "))
+	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Non-OK HTTP status:", resp.StatusCode)
 		return ErrNonOKhttpStatus
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
-	w.Write(body)
-	w.Close()
 
-	ioutil.WriteFile(destination, b.Bytes(), os.ModePerm)
+	os.WriteFile(destination, body, os.ModePerm)
 	return nil
 }

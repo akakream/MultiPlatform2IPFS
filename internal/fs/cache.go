@@ -25,8 +25,7 @@ func GetCachedToken(repoName string) (bool, string, error) {
 	if pathExists(tokenPath) {
 		token, err := getTokenFromCache(repoName)
 		if err != nil {
-			// Deal with this
-			log.Fatalln("DEAL WITH THIS")
+			return false, "", nil
 		}
 		if isTokenValid(repoName, token) {
 			return true, token, nil
@@ -34,7 +33,6 @@ func GetCachedToken(repoName string) (bool, string, error) {
 	} else {
 		if err := createTokenFile(); err != nil {
 			log.Fatalln(err)
-			os.Exit(1)
 		}
 	}
 
@@ -45,7 +43,6 @@ func FillCache(repoName string, token string) error {
 	if !pathExists(tokenPath) {
 		if err := createTokenFile(); err != nil {
 			log.Fatalln(err)
-			os.Exit(1)
 		}
 	}
 
@@ -110,12 +107,10 @@ func readTokensFromCache() TokenStore {
 	file, err := os.ReadFile(tokenPath)
 	if err != nil {
 		log.Fatalln("The file " + tokenPath + " cannot be read.")
-		os.Exit(1)
 	}
 	var tokens TokenStore
 	if err := json.Unmarshal(file, &tokens); err != nil {
 		log.Fatalln("Could not read the tokens from " + tokenPath)
-		os.Exit(1)
 	}
 
 	return tokens
