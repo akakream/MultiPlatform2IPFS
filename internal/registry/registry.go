@@ -21,6 +21,14 @@ var (
 )
 
 func CopyImage(repoName string) {
+	fmt.Println("Downloading the image...")
+	downloadImage(repoName)
+	fmt.Println("Uploading the image...")
+	uploadImage()
+	fmt.Println("The multi-arch image is uploaded to the IPFS!")
+}
+
+func downloadImage(repoName string) {
 	token := getCachedOrNewToken(repoName)
 
 	fatManifest, err := getFatManifest(repoName, token)
@@ -41,11 +49,16 @@ func CopyImage(repoName string) {
 		fs.CreateDir(manifestsFolderPath)
 		fs.CreateDir(blobsFolderPath)
 		fs.SaveJson(manifest, manifestsFolderPath+"/latest")
-		stringManifest, err := json.Marshal(manifest)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		fs.SaveJson(manifest, manifestsFolderPath+"/"+fs.Sha256izeString(string(stringManifest)))
+
+		/*
+		   // I DO NOT THINK THAT THIS PART IS NECESSARY.
+		   // ALSO REMOVE IT FROM IPDR.
+		   manifestSha256, err := fs.Sha256File(manifestsFolderPath + "/latest")
+		   if err != nil {
+		       log.Fatalln(err)
+		   }
+		   fs.SaveJson(manifest, manifestsFolderPath+"/sha256"+manifestSha256)
+		*/
 
 		config, err := getConfig(repoName, manifest.Config.Digest, token)
 		if err != nil {
@@ -67,6 +80,10 @@ func CopyImage(repoName string) {
 			}
 		}
 	}
+}
+
+func uploadImage() {
+	fmt.Println("uploadImage")
 }
 
 func getCachedOrNewToken(repoName string) string {
@@ -106,8 +123,6 @@ func getToken(repoName string) string {
 	if err := json.Unmarshal(body, &jsonResult); err != nil { // Parse []byte to the go struct pointer
 		fmt.Println("Can not unmarshal JSON")
 	}
-
-	fmt.Println(jsonResult.Token)
 	return jsonResult.Token
 }
 
@@ -150,8 +165,6 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 	if err := json.Unmarshal(body, &fatManifest); err != nil { // Parse []byte to the go struct pointer
 		fmt.Println("Can not unmarshal JSON")
 	}
-	fmt.Println(fatManifest)
-
 	return fatManifest, nil
 }
 
