@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/akakream/MultiPlatform2IPFS/internal/fs"
+	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
 )
 
 var (
@@ -84,6 +85,7 @@ func downloadImage(repoName string) {
 
 func uploadImage() {
 	fmt.Println("uploadImage")
+	ipfs.Add("/Users/ahmetkerem/projects/MultiPlatform2IPFS/export")
 }
 
 func getCachedOrNewToken(repoName string) string {
