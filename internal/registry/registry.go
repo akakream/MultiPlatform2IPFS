@@ -85,7 +85,7 @@ func downloadImage(repoName string) {
 
 func uploadImage() {
 	fmt.Println("uploadImage")
-	ipfs.Add("/Users/ahmetkerem/projects/MultiPlatform2IPFS/export")
+	ipfs.Add("/Users/ahmetkerem/projects/MultiPlatform2IPFS/export", true)
 }
 
 func getCachedOrNewToken(repoName string) string {
