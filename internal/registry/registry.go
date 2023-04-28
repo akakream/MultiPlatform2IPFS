@@ -51,15 +51,12 @@ func downloadImage(repoName string) {
 		fs.CreateDir(blobsFolderPath)
 		fs.SaveJson(manifest, manifestsFolderPath+"/latest")
 
-		/*
-		   // I DO NOT THINK THAT THIS PART IS NECESSARY.
-		   // ALSO REMOVE IT FROM IPDR.
-		   manifestSha256, err := fs.Sha256File(manifestsFolderPath + "/latest")
-		   if err != nil {
-		       log.Fatalln(err)
-		   }
-		   fs.SaveJson(manifest, manifestsFolderPath+"/sha256"+manifestSha256)
-		*/
+		// If this is absent, IPDR does not pull the image.
+		manifestSha256, err := fs.Sha256File(manifestsFolderPath + "/latest")
+		if err != nil {
+			log.Fatalln(err)
+		}
+		fs.SaveJson(manifest, manifestsFolderPath+"/sha256:"+manifestSha256)
 
 		config, err := getConfig(repoName, manifest.Config.Digest, token)
 		if err != nil {

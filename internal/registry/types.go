@@ -24,18 +24,18 @@ type FatManifest struct {
 }
 
 type Manifest struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	MediaType     string `json:"mediaType"`
-	Config        struct {
+	Config struct {
+		Digest    string `json:"digest"`
 		MediaType string `json:"mediaType"`
 		Size      int    `json:"size"`
-		Digest    string `json:"digest"`
 	} `json:"config"`
 	Layers []struct {
+		Digest    string `json:"digest"`
 		MediaType string `json:"mediaType"`
 		Size      int    `json:"size"`
-		Digest    string `json:"digest"`
 	} `json:"layers"`
+	MediaType     string `json:"mediaType"`
+	SchemaVersion int    `json:"schemaVersion"`
 }
 
 type Config struct {

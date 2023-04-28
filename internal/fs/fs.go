@@ -9,7 +9,7 @@ import (
 )
 
 func SaveJson(data any, filename string) {
-	file, _ := json.MarshalIndent(data, "", " ")
+	file, _ := json.Marshal(data)
 	_ = os.WriteFile(filename, file, 0644)
 }
 
