@@ -14,6 +14,16 @@ import (
 	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
 )
 
+var acceptList = [9]string{"application/vnd.docker.distribution.manifest.v1+json",
+	"application/vnd.docker.distribution.manifest.v2+json",
+	"application/vnd.docker.distribution.manifest.list.v2+json",
+	"application/vnd.docker.container.image.v1+json",
+	"application/vnd.docker.image.rootfs.diff.tar.gzip",
+	"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
+	"application/vnd.docker.plugin.v1+json",
+	"application/vnd.oci.image.index.v1+json",
+	"application/vnd.oci.image.manifest.v1+json"}
+
 var (
 	// ErrManifestIsNotFat is error for when the repository is not multi-platform
 	ErrManifestIsNotFat = errors.New("the repository is not multi-platform")
@@ -126,14 +136,6 @@ func getToken(repoName string) string {
 }
 
 func getFatManifest(repoName string, token string) (FatManifest, error) {
-	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
-		"application/vnd.docker.distribution.manifest.v2+json",
-		"application/vnd.docker.distribution.manifest.list.v2+json",
-		"application/vnd.docker.container.image.v1+json",
-		"application/vnd.docker.image.rootfs.diff.tar.gzip",
-		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-		"application/vnd.docker.plugin.v1+json"}
-
 	url := "https://registry-1.docker.io/v2/library/" + repoName + "/manifests/latest"
 
 	client := &http.Client{}
@@ -151,7 +153,7 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 		return FatManifest{}, ErrNonOKhttpStatus
 	}
 
-	if resp.Header.Get("content-type") != "application/vnd.docker.distribution.manifest.list.v2+json" {
+	if resp.Header.Get("content-type") != "application/vnd.docker.distribution.manifest.list.v2+json" && resp.Header.Get("content-type") != "application/vnd.oci.image.index.v1+json" {
 		return FatManifest{}, ErrManifestIsNotFat
 	}
 
@@ -168,14 +170,6 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 }
 
 func getManifest(repoName string, digest string, token string) (Manifest, error) {
-	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
-		"application/vnd.docker.distribution.manifest.v2+json",
-		"application/vnd.docker.distribution.manifest.list.v2+json",
-		"application/vnd.docker.container.image.v1+json",
-		"application/vnd.docker.image.rootfs.diff.tar.gzip",
-		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-		"application/vnd.docker.plugin.v1+json"}
-
 	url := "https://registry-1.docker.io/v2/library/" + repoName + "/manifests/" + digest
 
 	client := &http.Client{}
@@ -207,14 +201,6 @@ func getManifest(repoName string, digest string, token string) (Manifest, error)
 }
 
 func getConfig(repoName string, digest string, token string) (Config, error) {
-	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
-		"application/vnd.docker.distribution.manifest.v2+json",
-		"application/vnd.docker.distribution.manifest.list.v2+json",
-		"application/vnd.docker.container.image.v1+json",
-		"application/vnd.docker.image.rootfs.diff.tar.gzip",
-		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-		"application/vnd.docker.plugin.v1+json"}
-
 	url := "https://registry-1.docker.io/v2/library/" + repoName + "/blobs/" + digest
 
 	client := &http.Client{}
