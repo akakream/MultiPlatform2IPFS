@@ -16,6 +16,7 @@ type FatManifest struct {
 		Platform  struct {
 			Architecture string `json:"architecture"`
 			Os           string `json:"os"`
+			Variant      string `json:"variant"`
 		} `json:"platform,omitempty"`
 		Size int `json:"size"`
 	} `json:"manifests"`

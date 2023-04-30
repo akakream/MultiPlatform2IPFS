@@ -45,8 +45,8 @@ func downloadImage(repoName string) {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		manifestsFolderPath := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/manifests"
-		blobsFolderPath := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs"
+		manifestsFolderPath := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/manifests"
+		blobsFolderPath := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/blobs"
 		fs.CreateDir(manifestsFolderPath)
 		fs.CreateDir(blobsFolderPath)
 		fs.SaveJson(manifest, manifestsFolderPath+"/latest")
@@ -65,7 +65,7 @@ func downloadImage(repoName string) {
 		fs.SaveJson(config, blobsFolderPath+"/"+manifest.Config.Digest)
 
 		for _, layerValue := range manifest.Layers {
-			destinationFolder := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + "/blobs"
+			destinationFolder := "export/" + manifestValue.Platform.Os + "/" + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/blobs"
 			tempDestination := destinationFolder + "/layer.tmp.tgz"
 			downloadLayer(repoName, layerValue.Digest, token, tempDestination)
 			layerSha256, err := fs.Sha256File(tempDestination)
