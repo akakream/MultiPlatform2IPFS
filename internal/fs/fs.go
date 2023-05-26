@@ -8,9 +8,16 @@ import (
 	"os"
 )
 
-func SaveJson(data any, filename string) {
-	file, _ := json.Marshal(data)
-	_ = os.WriteFile(filename, file, 0644)
+func SaveJson(data any, filename string) error {
+	file, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, file, 0644)
+}
+
+func WriteBytesToFile(filename string, data []byte) error {
+	return os.WriteFile(filename, data, 0644)
 }
 
 func CreateDir(path string) {

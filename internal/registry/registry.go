@@ -31,6 +31,10 @@ var (
 	ErrNonOKhttpStatus = errors.New("the http status is not OK")
 )
 
+const registryEndpoint = "https://index.docker.io/v2/library/"
+
+// const registryEndpoint = "https://registry-1.docker.io/v2/library/"
+
 func CopyImage(repoName string) {
 	fmt.Println("Downloading the image...")
 	downloadImage(repoName)
@@ -48,7 +52,10 @@ func downloadImage(repoName string) {
 	}
 
 	fs.CreateDir("export")
-	fs.SaveJson(fatManifest, "export/manifestlist.json")
+	err = fs.SaveJson(fatManifest, "export/manifestlist.json")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	for _, manifestValue := range fatManifest.Manifests {
 		manifest, err := getManifest(repoName, manifestValue.Digest, token)
@@ -59,20 +66,31 @@ func downloadImage(repoName string) {
 		blobsFolderPath := "export/" + manifestValue.Platform.Os + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/blobs"
 		fs.CreateDir(manifestsFolderPath)
 		fs.CreateDir(blobsFolderPath)
-		fs.SaveJson(manifest, manifestsFolderPath+"/latest")
+		err = fs.SaveJson(manifest, manifestsFolderPath+"/latest")
+		if err != nil {
+			log.Fatalln(err)
+		}
 
 		// If this is absent, IPDR does not pull the image.
 		manifestSha256, err := fs.Sha256File(manifestsFolderPath + "/latest")
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fs.SaveJson(manifest, manifestsFolderPath+"/sha256:"+manifestSha256)
+		err = fs.SaveJson(manifest, manifestsFolderPath+"/sha256:"+manifestSha256)
+		if err != nil {
+			log.Fatalln(err)
+		}
 
 		config, err := getConfig(repoName, manifest.Config.Digest, token)
 		if err != nil {
 			fmt.Println(err)
 		}
-		fs.SaveJson(config, blobsFolderPath+"/"+manifest.Config.Digest)
+
+		err = fs.WriteBytesToFile(blobsFolderPath+"/"+manifest.Config.Digest, config)
+		if err != nil {
+			fmt.Println(err)
+		}
+		// err = fs.SaveJson(config, blobsFolderPath+"/"+manifest.Config.Digest)
 
 		for _, layerValue := range manifest.Layers {
 			destinationFolder := "export/" + manifestValue.Platform.Os + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/blobs"
@@ -136,7 +154,7 @@ func getToken(repoName string) string {
 }
 
 func getFatManifest(repoName string, token string) (FatManifest, error) {
-	url := "https://registry-1.docker.io/v2/library/" + repoName + "/manifests/latest"
+	url := registryEndpoint + repoName + "/manifests/latest"
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
@@ -170,7 +188,7 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 }
 
 func getManifest(repoName string, digest string, token string) (Manifest, error) {
-	url := "https://registry-1.docker.io/v2/library/" + repoName + "/manifests/" + digest
+	url := registryEndpoint + repoName + "/manifests/" + digest
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
@@ -200,8 +218,8 @@ func getManifest(repoName string, digest string, token string) (Manifest, error)
 	return manifest, nil
 }
 
-func getConfig(repoName string, digest string, token string) (Config, error) {
-	url := "https://registry-1.docker.io/v2/library/" + repoName + "/blobs/" + digest
+func getConfig(repoName string, digest string, token string) ([]byte, error) {
+	url := registryEndpoint + repoName + "/blobs/" + digest
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
@@ -215,7 +233,7 @@ func getConfig(repoName string, digest string, token string) (Config, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Non-OK HTTP status:", resp.StatusCode)
-		return Config{}, ErrNonOKhttpStatus
+		return nil, ErrNonOKhttpStatus
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -223,16 +241,16 @@ func getConfig(repoName string, digest string, token string) (Config, error) {
 		log.Fatalln(err)
 	}
 
-	var config Config
-	if err := json.Unmarshal(body, &config); err != nil { // Parse []byte to the go struct pointer
-		fmt.Println("Can not unmarshal JSON")
-	}
+	// var config Config
+	// if err := json.Unmarshal(body, &config); err != nil { // Parse []byte to the go struct pointer
+	// 	fmt.Println("Can not unmarshal JSON")
+	// }
 
-	return config, nil
+	return body, nil
 }
 
 func downloadLayer(repoName string, digest string, token string, destination string) error {
-	url := "https://registry-1.docker.io/v2/library/" + repoName + "/blobs/" + digest
+	url := registryEndpoint + repoName + "/blobs/" + digest
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
