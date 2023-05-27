@@ -46,39 +46,49 @@ func CopyImage(repoName string) {
 func downloadImage(repoName string) {
 	token := getCachedOrNewToken(repoName)
 
-	fatManifest, err := getFatManifest(repoName, token)
+	fatManifest, fatManifestRaw, err := getFatManifest(repoName, token)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	fs.CreateDir("export")
-	err = fs.SaveJson(fatManifest, "export/manifestlist.json")
+	dir_manifests := "export/manifests/"
+	dir_blobs := "export/blobs/"
+	fs.CreateDirs([]string{dir_manifests, dir_blobs})
+	/*
+		err = fs.SaveJson(fatManifest, dir_manifests+"latest")
+		if err != nil {
+			log.Fatalln(err)
+		}
+	*/
+	err = fs.WriteBytesToFile(dir_manifests+"latest", fatManifestRaw)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fatManifestSha256, err := fs.Sha256File(dir_manifests + "latest")
 	if err != nil {
 		log.Fatalln(err)
+	}
+	err = fs.WriteBytesToFile(dir_manifests+"sha256:"+fatManifestSha256, fatManifestRaw)
+	if err != nil {
+		fmt.Println(err)
 	}
 
 	for _, manifestValue := range fatManifest.Manifests {
-		manifest, err := getManifest(repoName, manifestValue.Digest, token)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		manifestsFolderPath := "export/" + manifestValue.Platform.Os + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/manifests"
-		blobsFolderPath := "export/" + manifestValue.Platform.Os + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/blobs"
-		fs.CreateDir(manifestsFolderPath)
-		fs.CreateDir(blobsFolderPath)
-		err = fs.SaveJson(manifest, manifestsFolderPath+"/latest")
+		manifest, manifestRaw, err := getManifest(repoName, manifestValue.Digest, token)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
-		// If this is absent, IPDR does not pull the image.
-		manifestSha256, err := fs.Sha256File(manifestsFolderPath + "/latest")
+		/*
+			err = fs.SaveJson(manifest, dir_manifests+manifestValue.Digest)
+			if err != nil {
+				log.Fatalln(err)
+			}
+		*/
+		err = fs.WriteBytesToFile(dir_manifests+manifestValue.Digest, manifestRaw)
 		if err != nil {
-			log.Fatalln(err)
-		}
-		err = fs.SaveJson(manifest, manifestsFolderPath+"/sha256:"+manifestSha256)
-		if err != nil {
-			log.Fatalln(err)
+			fmt.Println(err)
 		}
 
 		config, err := getConfig(repoName, manifest.Config.Digest, token)
@@ -86,24 +96,13 @@ func downloadImage(repoName string) {
 			fmt.Println(err)
 		}
 
-		err = fs.WriteBytesToFile(blobsFolderPath+"/"+manifest.Config.Digest, config)
+		err = fs.WriteBytesToFile(dir_blobs+manifest.Config.Digest, config)
 		if err != nil {
 			fmt.Println(err)
 		}
-		// err = fs.SaveJson(config, blobsFolderPath+"/"+manifest.Config.Digest)
 
 		for _, layerValue := range manifest.Layers {
-			destinationFolder := "export/" + manifestValue.Platform.Os + manifestValue.Platform.Architecture + manifestValue.Platform.Variant + "/blobs"
-			tempDestination := destinationFolder + "/layer.tmp.tgz"
-			downloadLayer(repoName, layerValue.Digest, token, tempDestination)
-			layerSha256, err := fs.Sha256File(tempDestination)
-			if err != nil {
-				os.Exit(1)
-			}
-			destination := destinationFolder + "/sha256:" + layerSha256
-			if err := os.Rename(tempDestination, destination); err != nil {
-				os.Exit(1)
-			}
+			downloadLayer(repoName, layerValue.Digest, token, dir_blobs+layerValue.Digest)
 		}
 	}
 }
@@ -153,7 +152,7 @@ func getToken(repoName string) string {
 	return jsonResult.Token
 }
 
-func getFatManifest(repoName string, token string) (FatManifest, error) {
+func getFatManifest(repoName string, token string) (FatManifest, []byte, error) {
 	url := registryEndpoint + repoName + "/manifests/latest"
 
 	client := &http.Client{}
@@ -168,11 +167,11 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Non-OK HTTP status:", resp.StatusCode)
-		return FatManifest{}, ErrNonOKhttpStatus
+		return FatManifest{}, nil, ErrNonOKhttpStatus
 	}
 
 	if resp.Header.Get("content-type") != "application/vnd.docker.distribution.manifest.list.v2+json" && resp.Header.Get("content-type") != "application/vnd.oci.image.index.v1+json" {
-		return FatManifest{}, ErrManifestIsNotFat
+		return FatManifest{}, nil, ErrManifestIsNotFat
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -184,10 +183,10 @@ func getFatManifest(repoName string, token string) (FatManifest, error) {
 	if err := json.Unmarshal(body, &fatManifest); err != nil { // Parse []byte to the go struct pointer
 		fmt.Println("Can not unmarshal JSON")
 	}
-	return fatManifest, nil
+	return fatManifest, body, nil
 }
 
-func getManifest(repoName string, digest string, token string) (Manifest, error) {
+func getManifest(repoName string, digest string, token string) (Manifest, []byte, error) {
 	url := registryEndpoint + repoName + "/manifests/" + digest
 
 	client := &http.Client{}
@@ -202,7 +201,7 @@ func getManifest(repoName string, digest string, token string) (Manifest, error)
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Non-OK HTTP status:", resp.StatusCode)
-		return Manifest{}, ErrNonOKhttpStatus
+		return Manifest{}, nil, ErrNonOKhttpStatus
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -215,7 +214,7 @@ func getManifest(repoName string, digest string, token string) (Manifest, error)
 		fmt.Println("Can not unmarshal JSON")
 	}
 
-	return manifest, nil
+	return manifest, body, nil
 }
 
 func getConfig(repoName string, digest string, token string) ([]byte, error) {

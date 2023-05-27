@@ -20,10 +20,22 @@ func WriteBytesToFile(filename string, data []byte) error {
 	return os.WriteFile(filename, data, 0644)
 }
 
-func CreateDir(path string) {
+func CreateDir(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		os.MkdirAll(path, 0700)
+		if err := os.MkdirAll(path, 0700); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func CreateDirs(paths []string) error {
+	for _, path := range paths {
+		if err := CreateDir(path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func Sha256izeString(input string) string {
