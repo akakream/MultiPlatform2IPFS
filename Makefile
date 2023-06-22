@@ -9,3 +9,9 @@ test:
 
 vendor:
 	@go mod vendor
+
+clean.bin:
+	rm -rf ./bin/*
+
+clean.export:
+	rm -rf ./export/*
