@@ -8,8 +8,10 @@ github.com/crackcomm/go-gitignore
 ## explicit; go 1.17
 github.com/decred/dcrd/dcrec/secp256k1/v4
 github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
-# github.com/gogo/protobuf v1.3.2
-## explicit; go 1.15
+# github.com/go-chi/chi/v5 v5.0.8
+## explicit; go 1.14
+github.com/go-chi/chi/v5
+github.com/go-chi/chi/v5/middleware
 # github.com/inconshreveable/mousetrap v1.0.1
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
@@ -23,8 +25,6 @@ github.com/ipfs/go-cid
 ## explicit; go 1.19
 github.com/ipfs/go-ipfs-api
 github.com/ipfs/go-ipfs-api/options
-# github.com/ipfs/go-ipfs-files v0.0.9
-## explicit; go 1.16
 # github.com/klauspost/cpuid/v2 v2.2.3
 ## explicit; go 1.15
 github.com/klauspost/cpuid/v2
@@ -45,10 +45,6 @@ github.com/libp2p/go-libp2p/core/peer/pb
 github.com/libp2p/go-libp2p/core/protocol
 github.com/libp2p/go-libp2p/core/record
 github.com/libp2p/go-libp2p/core/record/pb
-# github.com/libp2p/go-openssl v0.1.0
-## explicit; go 1.17
-# github.com/mattn/go-pointer v0.0.1
-## explicit
 # github.com/minio/sha256-simd v1.0.0
 ## explicit; go 1.13
 github.com/minio/sha256-simd
@@ -90,8 +86,6 @@ github.com/multiformats/go-multistream
 # github.com/multiformats/go-varint v0.0.7
 ## explicit; go 1.18
 github.com/multiformats/go-varint
-# github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
-## explicit
 # github.com/spaolacci/murmur3 v1.1.0
 ## explicit
 github.com/spaolacci/murmur3

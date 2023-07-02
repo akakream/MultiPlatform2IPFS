@@ -4,9 +4,11 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"errors"
 
 	registry "github.com/akakream/MultiPlatform2IPFS/internal/registry"
+	"github.com/akakream/MultiPlatform2IPFS/server"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +18,24 @@ var (
 	// ErrOnlyOneArgumentRequired is error for when one argument only is required
 	ErrOnlyOneArgumentRequired = errors.New("only one argument is required")
 )
+
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Start server",
+	Long:  `Start server`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		port, err := cmd.PersistentFlags().GetString("port")
+		if err != nil {
+			panic(err)
+		}
+
+		s := server.NewServer(port)
+		s.Start()
+	},
+}
 
 // copyCmd represents the copy command
 var copyCmd = &cobra.Command{
@@ -34,20 +54,12 @@ MultiPlatform2IPFS copy busybox:latest .`,
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		registry.CopyImage(args[0])
+		registry.CopyImage(context.TODO(), args[0])
 	},
 }
 
 func init() {
+	serverCmd.PersistentFlags().StringP("port", "p", "3002", "give the port where the server runs")
+	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(copyCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// copyCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// copyCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

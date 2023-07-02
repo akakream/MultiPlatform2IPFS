@@ -46,14 +46,18 @@ func FillCache(repoName string, token string) error {
 		}
 	}
 
-	tokens := readTokensFromCache()
-	repoExists, repoIndex := repositoryIsInCache(repoName, &tokens)
+	tokens, err := readTokensFromCache()
+	if err != nil {
+		return err
+	}
+
+	repoExists, repoIndex := repositoryIsInCache(repoName, tokens)
 	if repoExists {
 		tokens.Tokens[repoIndex].Token = token // renew the token
 	} else {
-		addTokenToCache(repoName, token, &tokens)
+		addTokenToCache(repoName, token, tokens)
 	}
-	writeTokensToCache(tokens)
+	writeTokensToCache(*tokens)
 	return nil
 }
 
@@ -94,26 +98,30 @@ func createTokenFile() error {
 }
 
 func getTokenFromCache(repoName string) (string, error) {
-	tokens := readTokensFromCache()
-	repoExists, repoIndex := repositoryIsInCache(repoName, &tokens)
+	tokens, err := readTokensFromCache()
+	if err != nil {
+		return "", err
+	}
+	repoExists, repoIndex := repositoryIsInCache(repoName, tokens)
 	if repoExists {
 		return tokens.Tokens[repoIndex].Token, nil
 	}
 	return "", errors.New("token could not be fetched from the cache")
 }
 
-func readTokensFromCache() TokenStore {
+func readTokensFromCache() (*TokenStore, error) {
 	// read File
 	file, err := os.ReadFile(tokenPath)
 	if err != nil {
-		log.Fatalln("The file " + tokenPath + " cannot be read.")
+		return nil, err
 	}
 	var tokens TokenStore
+	// If error, the file is empty
 	if err := json.Unmarshal(file, &tokens); err != nil {
-		log.Fatalln("Could not read the tokens from " + tokenPath)
+		return &tokens, nil
 	}
 
-	return tokens
+	return &tokens, nil
 }
 
 func writeTokensToCache(tokens TokenStore) {
