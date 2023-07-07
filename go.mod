@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/ipfs/go-ipfs-api v0.6.0
+	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.6.1
 )
 

@@ -2,3 +2,4 @@
 export
 bin
 cache/tokens.json
+.env

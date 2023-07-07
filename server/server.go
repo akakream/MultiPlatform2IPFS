@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -11,12 +13,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 
 	registry "github.com/akakream/MultiPlatform2IPFS/internal/registry"
+	"github.com/akakream/MultiPlatform2IPFS/utils"
 )
 
 type Server struct {
-	port          string
+	baseURL       string
 	quitch        chan struct{}
 	cancelContext context.CancelFunc
 }
@@ -31,6 +35,11 @@ type apiFunc func(http.ResponseWriter, *http.Request) error
 type Image struct {
 	Name string `json:"name"`
 	Cid  string `json:"cid"`
+}
+
+type CrdtPair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func (e apiError) Error() string {
@@ -49,12 +58,12 @@ func makeHTTPHandler(f apiFunc) http.HandlerFunc {
 	}
 }
 
-func NewServer(port string) *Server {
+func NewServer(baseURL string) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = ctx
 
 	return &Server{
-		port:          port,
+		baseURL:       baseURL,
 		quitch:        make(chan struct{}),
 		cancelContext: cancel,
 	}
@@ -70,7 +79,7 @@ func (s *Server) Start() {
 	go s.listenShutdown()
 
 	go func() {
-		if err := http.ListenAndServe(":"+s.port, r); err != http.ErrServerClosed {
+		if err := http.ListenAndServe(s.baseURL, r); err != http.ErrServerClosed {
 			log.Fatalf("HTTP server ListenAndServe Error: %v", err)
 		}
 	}()
@@ -104,18 +113,64 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Logic
-	ctx := context.TODO()
-	cid, err := registry.CopyImage(ctx, imageName)
-	if err != nil {
-		return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
-	}
+	go func() {
+		ctx := context.TODO()
+		cid, err := registry.CopyImage(ctx, imageName)
+		if err != nil {
+			cid = ""
+		}
 
-	resp := Image{
-		Name: imageName,
-		Cid:  cid,
+		// Return the answer by calling an endpoint in the DistroMash
+		// This is not ideal but currently I will implement it like this
+		err = postCid(imageName, cid)
+		if err != nil {
+			log.Println(fmt.Errorf("Could not post the cid to DistroMash %v", err))
+		}
+	}()
+
+	resp := struct {
+		Msg string `json:"msg"`
+	}{
+		Msg: "order received",
 	}
 
 	return writeJSON(w, http.StatusOK, resp)
+}
+
+func postCid(imageName string, cid string) error {
+	if err := godotenv.Load(); err != nil {
+		panic(err)
+	}
+	distroMashURL, err := utils.GetEnv("DISTROMASH_URL", "localhost:3000")
+	if err != nil {
+		panic(err)
+	}
+
+	crdtPair := CrdtPair{
+		Key:   imageName,
+		Value: cid,
+	}
+	payload, err := json.Marshal(crdtPair)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("http://%s/api/v1/crdt", distroMashURL)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	// Check response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Non-OK HTTP status from the api with status code %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (s *Server) gracefullyQuitServer() {

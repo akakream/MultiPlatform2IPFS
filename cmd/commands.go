@@ -9,6 +9,9 @@ import (
 
 	registry "github.com/akakream/MultiPlatform2IPFS/internal/registry"
 	"github.com/akakream/MultiPlatform2IPFS/server"
+	"github.com/akakream/MultiPlatform2IPFS/utils"
+
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -27,12 +30,15 @@ var serverCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		port, err := cmd.PersistentFlags().GetString("port")
+		if err := godotenv.Load(); err != nil {
+			panic(err)
+		}
+		baseURL, err := utils.GetEnv("BASE_URL", "localhost:3000")
 		if err != nil {
 			panic(err)
 		}
 
-		s := server.NewServer(port)
+		s := server.NewServer(baseURL)
 		s.Start()
 	},
 }

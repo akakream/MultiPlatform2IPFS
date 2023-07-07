@@ -9,10 +9,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/akakream/MultiPlatform2IPFS/internal/fs"
 	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
+	"github.com/akakream/MultiPlatform2IPFS/utils"
+	"github.com/joho/godotenv"
 )
 
 var acceptList = [9]string{"application/vnd.docker.distribution.manifest.v1+json",
@@ -37,6 +40,9 @@ const registryEndpoint = "https://index.docker.io/v2/library/"
 // const registryEndpoint = "https://registry-1.docker.io/v2/library/"
 
 func CopyImage(ctx context.Context, repoName string) (string, error) {
+	fmt.Println("Removing existing files under the export directory...")
+	clearExportPath()
+
 	fmt.Println("Downloading the image...")
 	err := downloadImage(repoName)
 	if err != nil {
@@ -62,8 +68,16 @@ func downloadImage(repoName string) error {
 		return err
 	}
 
-	dir_manifests := "export/manifests/"
-	dir_blobs := "export/blobs/"
+	if err := godotenv.Load(); err != nil {
+		panic(err)
+	}
+	exportPath, err := utils.GetEnv("EXPORT_PATH", "./export")
+	if err != nil {
+		panic(err)
+	}
+
+	dir_manifests := filepath.Join(exportPath, "manifests")
+	dir_blobs := filepath.Join(exportPath, "blobs")
 	err = fs.CreateDirs([]string{dir_manifests, dir_blobs})
 	if err != nil {
 		return err
@@ -127,7 +141,14 @@ func downloadImage(repoName string) error {
 
 func uploadImage() (string, error) {
 	fmt.Println("uploadImage")
-	cid, err := ipfs.Add("export", true)
+	if err := godotenv.Load(); err != nil {
+		panic(err)
+	}
+	exportPath, err := utils.GetEnv("EXPORT_PATH", "./export")
+	if err != nil {
+		panic(err)
+	}
+	cid, err := ipfs.Add(exportPath, true)
 	if err != nil {
 		return "", err
 	}
@@ -313,4 +334,16 @@ func downloadLayer(repoName string, digest string, token string, destination str
 	}
 
 	return nil
+}
+
+func clearExportPath() {
+	if err := godotenv.Load(); err != nil {
+		panic(err)
+	}
+	exportPath, err := utils.GetEnv("EXPORT_PATH", "./export")
+	if err != nil {
+		panic(err)
+	}
+
+	os.RemoveAll(exportPath)
 }
