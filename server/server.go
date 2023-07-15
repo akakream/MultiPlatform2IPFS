@@ -70,6 +70,7 @@ func NewServer(baseURL string) *Server {
 }
 
 func (s *Server) Start() {
+    fmt.Println("Starting the MultiPlatform2IPFS server...")
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	// Publish a message to a topic
@@ -83,6 +84,7 @@ func (s *Server) Start() {
 			log.Fatalf("HTTP server ListenAndServe Error: %v", err)
 		}
 	}()
+    fmt.Println("MultiPlatform2IPFS server started.")
 
 	<-s.quitch
 }
