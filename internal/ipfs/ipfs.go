@@ -17,3 +17,9 @@ func Add(dirPath string, willPin bool) (string, error) {
 	fmt.Printf("added %s \n", cid)
 	return cid, nil
 }
+
+func DeamonIsUp() bool {
+	sh := shell.NewShell("localhost:5001")
+    deamonIsUp := sh.IsUp()
+    return deamonIsUp
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 
+	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
 	registry "github.com/akakream/MultiPlatform2IPFS/internal/registry"
 	"github.com/akakream/MultiPlatform2IPFS/utils"
 )
@@ -84,6 +85,12 @@ func (s *Server) Start() {
 			log.Fatalf("HTTP server ListenAndServe Error: %v", err)
 		}
 	}()
+
+    // Check if a local ipfs daeamon is running
+    if !ipfs.DeamonIsUp() {
+        fmt.Println("There is no local IPFS daemon is running! Uploads will fail!")
+    }
+
     fmt.Println("MultiPlatform2IPFS server started.")
 
 	<-s.quitch
@@ -141,11 +148,11 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 
 func postCid(imageName string, cid string) error {
 	if err := godotenv.Load(); err != nil {
-		panic(err)
+		return err
 	}
 	distroMashURL, err := utils.GetEnv("DISTROMASH_URL", "localhost:3000")
 	if err != nil {
-		panic(err)
+        return err
 	}
 
 	crdtPair := CrdtPair{
