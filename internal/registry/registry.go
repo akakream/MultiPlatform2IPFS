@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/akakream/MultiPlatform2IPFS/internal/fs"
 	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
@@ -48,6 +49,7 @@ func CopyImage(ctx context.Context, repoName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	fmt.Println("Uploading the image...")
 	cid, err := uploadImage()
 	if err != nil {
@@ -102,6 +104,7 @@ func downloadImage(repoName string) error {
 		return err
 	}
 
+    downloadWG := sync.WaitGroup{}
 	for _, manifestValue := range fatManifest.Manifests {
 		manifest, manifestRaw, err := getManifest(repoName, manifestValue.Digest, token)
 		if err != nil {
@@ -130,11 +133,13 @@ func downloadImage(repoName string) error {
 		}
 
 		for _, layerValue := range manifest.Layers {
-			if err := downloadLayer(repoName, layerValue.Digest, token, dir_blobs+layerValue.Digest); err != nil {
-				return err
-			}
+            // TODO: ADD RETRY HERE
+            downloadWG.Add(1)
+			go downloadLayer(repoName, layerValue.Digest, token, dir_blobs+layerValue.Digest, &downloadWG)
 		}
 	}
+
+    downloadWG.Wait()
 
 	return nil
 }
@@ -304,7 +309,9 @@ func getConfig(repoName string, digest string, token string) ([]byte, error) {
 	return body, nil
 }
 
-func downloadLayer(repoName string, digest string, token string, destination string) error {
+func downloadLayer(repoName string, digest string, token string, destination string, wg *sync.WaitGroup) error {
+    defer wg.Done()
+
 	url := registryEndpoint + repoName + "/blobs/" + digest
 
 	client := &http.Client{}
@@ -314,7 +321,7 @@ func downloadLayer(repoName string, digest string, token string, destination str
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalln(err)
+        return err
 	}
 	defer resp.Body.Close()
 
@@ -325,7 +332,7 @@ func downloadLayer(repoName string, digest string, token string, destination str
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalln(err)
+        return err
 	}
 
 	err = os.WriteFile(destination, body, os.ModePerm)
