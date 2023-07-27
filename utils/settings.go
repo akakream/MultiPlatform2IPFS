@@ -29,10 +29,6 @@ func InitSettings() error {
 	if err != nil {
 		return err
 	}
-	distromashURL, err = GetEnv("DISTROMASH_URL", "")
-	if err != nil {
-		return err
-	}
 	exportPath, err = GetEnv("EXPORT_PATH", "./export")
 	if err != nil {
 		return err

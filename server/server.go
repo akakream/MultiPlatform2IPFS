@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,11 +12,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/joho/godotenv"
 
 	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
 	registry "github.com/akakream/MultiPlatform2IPFS/internal/registry"
-	"github.com/akakream/MultiPlatform2IPFS/utils"
 )
 
 type Server struct {
@@ -122,30 +119,25 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Logic
-	go func() {
-		ctx := context.TODO()
-		cid, err := registry.CopyImage(ctx, imageName)
-		if err != nil {
-			cid = ""
-		}
-
-		// Return the answer by calling an endpoint in the DistroMash
-		// This is not ideal but currently I will implement it like this
-		err = postCid(imageName, cid)
-		if err != nil {
-			log.Println(fmt.Errorf("Could not post the cid to DistroMash %v", err))
-		}
-	}()
+    ctx := context.TODO()
+    cid, err := registry.CopyImage(ctx, imageName)
+    if err != nil {
+        // TODO: Gotta handle this properly on DistroMash
+        cid = ""
+    }
 
 	resp := struct {
-		Msg string `json:"msg"`
+		Name string `json:"name"`
+		Cid string `json:"cid"`
 	}{
-		Msg: "order received",
+        Name: imageName,
+        Cid: cid,
 	}
 
 	return writeJSON(w, http.StatusOK, resp)
 }
 
+/*
 func postCid(imageName string, cid string) error {
 	if err := godotenv.Load(); err != nil {
 		return err
@@ -181,6 +173,7 @@ func postCid(imageName string, cid string) error {
 	}
 	return nil
 }
+*/
 
 func (s *Server) gracefullyQuitServer() {
 	log.Println("Shutting down the server")
