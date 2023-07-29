@@ -13,13 +13,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/joho/godotenv"
+
 	"github.com/akakream/MultiPlatform2IPFS/internal/fs"
 	"github.com/akakream/MultiPlatform2IPFS/internal/ipfs"
 	"github.com/akakream/MultiPlatform2IPFS/utils"
-	"github.com/joho/godotenv"
 )
 
-var acceptList = [9]string{"application/vnd.docker.distribution.manifest.v1+json",
+var acceptList = [9]string{
+	"application/vnd.docker.distribution.manifest.v1+json",
 	"application/vnd.docker.distribution.manifest.v2+json",
 	"application/vnd.docker.distribution.manifest.list.v2+json",
 	"application/vnd.docker.container.image.v1+json",
@@ -27,7 +29,8 @@ var acceptList = [9]string{"application/vnd.docker.distribution.manifest.v1+json
 	"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
 	"application/vnd.docker.plugin.v1+json",
 	"application/vnd.oci.image.index.v1+json",
-	"application/vnd.oci.image.manifest.v1+json"}
+	"application/vnd.oci.image.manifest.v1+json",
+}
 
 var (
 	// ErrManifestIsNotFat is error for when the repository is not multi-platform
@@ -90,21 +93,24 @@ func downloadImage(repoName string) error {
 			log.Fatalln(err)
 		}
 	*/
-	err = fs.WriteBytesToFile(dir_manifests+"latest", fatManifestRaw)
+	err = fs.WriteBytesToFile(filepath.Join(dir_manifests, "latest"), fatManifestRaw)
 	if err != nil {
 		return err
 	}
 
-	fatManifestSha256, err := fs.Sha256File(dir_manifests + "latest")
+	fatManifestSha256, err := fs.Sha256File(filepath.Join(dir_manifests, "latest"))
 	if err != nil {
 		return err
 	}
-	err = fs.WriteBytesToFile(dir_manifests+"sha256:"+fatManifestSha256, fatManifestRaw)
+	err = fs.WriteBytesToFile(
+		filepath.Join(dir_manifests, "sha256:"+fatManifestSha256),
+		fatManifestRaw,
+	)
 	if err != nil {
 		return err
 	}
 
-    downloadWG := sync.WaitGroup{}
+	downloadWG := sync.WaitGroup{}
 	for _, manifestValue := range fatManifest.Manifests {
 		manifest, manifestRaw, err := getManifest(repoName, manifestValue.Digest, token)
 		if err != nil {
@@ -117,7 +123,7 @@ func downloadImage(repoName string) error {
 				log.Fatalln(err)
 			}
 		*/
-		err = fs.WriteBytesToFile(dir_manifests+manifestValue.Digest, manifestRaw)
+		err = fs.WriteBytesToFile(filepath.Join(dir_manifests, manifestValue.Digest), manifestRaw)
 		if err != nil {
 			return err
 		}
@@ -127,19 +133,25 @@ func downloadImage(repoName string) error {
 			return err
 		}
 
-		err = fs.WriteBytesToFile(dir_blobs+manifest.Config.Digest, config)
+		err = fs.WriteBytesToFile(filepath.Join(dir_blobs, manifest.Config.Digest), config)
 		if err != nil {
 			return err
 		}
 
 		for _, layerValue := range manifest.Layers {
-            // TODO: ADD RETRY HERE
-            downloadWG.Add(1)
-			go downloadLayer(repoName, layerValue.Digest, token, dir_blobs+layerValue.Digest, &downloadWG)
+			// TODO: ADD RETRY HERE
+			downloadWG.Add(1)
+			go downloadLayer(
+				repoName,
+				layerValue.Digest,
+				token,
+				filepath.Join(dir_blobs, layerValue.Digest),
+				&downloadWG,
+			)
 		}
 	}
 
-    downloadWG.Wait()
+	downloadWG.Wait()
 
 	return nil
 }
@@ -231,7 +243,10 @@ func getFatManifest(repoName string, token string) (*FatManifest, []byte, error)
 		return &FatManifest{}, nil, ErrNonOKhttpStatus
 	}
 
-	if resp.Header.Get("content-type") != "application/vnd.docker.distribution.manifest.list.v2+json" && resp.Header.Get("content-type") != "application/vnd.oci.image.index.v1+json" {
+	if resp.Header.Get(
+		"content-type",
+	) != "application/vnd.docker.distribution.manifest.list.v2+json" &&
+		resp.Header.Get("content-type") != "application/vnd.oci.image.index.v1+json" {
 		return &FatManifest{}, nil, ErrManifestIsNotFat
 	}
 
@@ -309,8 +324,14 @@ func getConfig(repoName string, digest string, token string) ([]byte, error) {
 	return body, nil
 }
 
-func downloadLayer(repoName string, digest string, token string, destination string, wg *sync.WaitGroup) error {
-    defer wg.Done()
+func downloadLayer(
+	repoName string,
+	digest string,
+	token string,
+	destination string,
+	wg *sync.WaitGroup,
+) error {
+	defer wg.Done()
 
 	url := registryEndpoint + repoName + "/blobs/" + digest
 
@@ -321,7 +342,7 @@ func downloadLayer(repoName string, digest string, token string, destination str
 
 	resp, err := client.Do(req)
 	if err != nil {
-        return err
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -332,7 +353,7 @@ func downloadLayer(repoName string, digest string, token string, destination str
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-        return err
+		return err
 	}
 
 	err = os.WriteFile(destination, body, os.ModePerm)

@@ -51,7 +51,11 @@ func makeHTTPHandler(f apiFunc) http.HandlerFunc {
 				writeJSON(w, e.Status, e)
 				return
 			}
-			writeJSON(w, http.StatusInternalServerError, apiError{Err: "internal server error", Status: http.StatusInternalServerError})
+			writeJSON(
+				w,
+				http.StatusInternalServerError,
+				apiError{Err: "internal server error", Status: http.StatusInternalServerError},
+			)
 		}
 	}
 }
@@ -68,7 +72,7 @@ func NewServer(baseURL string) *Server {
 }
 
 func (s *Server) Start() {
-    fmt.Println("Starting the MultiPlatform2IPFS server...")
+	fmt.Printf("Starting the MultiPlatform2IPFS server at %s\n", s.baseURL)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	// Publish a message to a topic
@@ -83,12 +87,12 @@ func (s *Server) Start() {
 		}
 	}()
 
-    // Check if a local ipfs daeamon is running
-    if !ipfs.DeamonIsUp() {
-        fmt.Println("There is no local IPFS daemon is running! Uploads will fail!")
-    }
+	// Check if a local ipfs daeamon is running
+	if !ipfs.DeamonIsUp() {
+		fmt.Println("There is no local IPFS daemon is running! Uploads will fail!")
+	}
 
-    fmt.Println("MultiPlatform2IPFS server started.")
+	fmt.Println("MultiPlatform2IPFS server started.")
 
 	<-s.quitch
 }
@@ -119,19 +123,19 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Logic
-    ctx := context.TODO()
-    cid, err := registry.CopyImage(ctx, imageName)
-    if err != nil {
-        // TODO: Gotta handle this properly on DistroMash
-        cid = ""
-    }
+	ctx := context.TODO()
+	cid, err := registry.CopyImage(ctx, imageName)
+	if err != nil {
+		// TODO: Gotta handle this properly on DistroMash
+		cid = ""
+	}
 
 	resp := struct {
 		Name string `json:"name"`
-		Cid string `json:"cid"`
+		Cid  string `json:"cid"`
 	}{
-        Name: imageName,
-        Cid: cid,
+		Name: imageName,
+		Cid:  cid,
 	}
 
 	return writeJSON(w, http.StatusOK, resp)
