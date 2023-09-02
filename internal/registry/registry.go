@@ -93,6 +93,7 @@ func downloadImage(imageName string, imageTag string) error {
 
 	if err != nil {
 		log.Println("For the provided repository name, there is no Fat Manifest.")
+		log.Print(err)
 		err = getManifestWithLayers(
 			imageName,
 			"latest",
@@ -101,7 +102,9 @@ func downloadImage(imageName string, imageTag string) error {
 			token,
 			&downloadWG,
 		)
-		return err
+		if err != nil {
+			return err
+		}
 	} else {
 		err = storeFatManifest(fatManifestRaw, dir_manifests)
 		if err != nil {
