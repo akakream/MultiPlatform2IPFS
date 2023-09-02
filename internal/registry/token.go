@@ -58,6 +58,5 @@ func getToken(imageName string) (string, error) {
 	if err := json.Unmarshal(body, &jsonResult); err != nil { // Parse []byte to the go struct pointer
 		return "", err
 	}
-	fmt.Printf("%+v\n", jsonResult)
 	return jsonResult.Token, nil
 }
