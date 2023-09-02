@@ -10,18 +10,20 @@ type TokenResponse struct {
 }
 
 type FatManifest struct {
-	Manifests []struct {
-		Digest    string `json:"digest"`
-		MediaType string `json:"mediaType"`
-		Platform  struct {
-			Architecture string `json:"architecture"`
-			Os           string `json:"os"`
-			Variant      string `json:"variant"`
-		} `json:"platform,omitempty"`
-		Size int `json:"size"`
-	} `json:"manifests"`
-	MediaType     string `json:"mediaType"`
-	SchemaVersion int    `json:"schemaVersion"`
+	Manifests     []ManifestEntry `json:"manifests"`
+	MediaType     string          `json:"mediaType"`
+	SchemaVersion int             `json:"schemaVersion"`
+}
+
+type ManifestEntry struct {
+	Digest    string `json:"digest"`
+	MediaType string `json:"mediaType"`
+	Platform  struct {
+		Architecture string `json:"architecture"`
+		Os           string `json:"os"`
+		Variant      string `json:"variant"`
+	} `json:"platform,omitempty"`
+	Size int `json:"size"`
 }
 
 type Manifest struct {

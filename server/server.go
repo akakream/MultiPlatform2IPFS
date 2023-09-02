@@ -32,6 +32,7 @@ type apiFunc func(http.ResponseWriter, *http.Request) error
 
 type Image struct {
 	Name string `json:"name"`
+	Tag  string `json:"tag"`
 	Cid  string `json:"cid"`
 }
 
@@ -121,10 +122,14 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 	if imageName == "" {
 		return apiError{Err: "empty image name", Status: http.StatusBadRequest}
 	}
+	imageTag := bodyJson.Tag
+	if imageTag == "" {
+		return apiError{Err: "empty image tag", Status: http.StatusBadRequest}
+	}
 
 	// Logic
 	ctx := context.TODO()
-	cid, err := registry.CopyImage(ctx, imageName)
+	cid, err := registry.CopyImage(ctx, imageName, imageTag)
 	if err != nil {
 		// TODO: Gotta handle this properly on DistroMash
 		cid = ""
@@ -132,9 +137,11 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 
 	resp := struct {
 		Name string `json:"name"`
+		Tag  string `json:"tag"`
 		Cid  string `json:"cid"`
 	}{
 		Name: imageName,
+		Tag:  imageTag,
 		Cid:  cid,
 	}
 

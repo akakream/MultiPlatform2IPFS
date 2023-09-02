@@ -21,13 +21,13 @@ type TokenItem struct {
 
 const tokenPath = "cache/tokens.json"
 
-func GetCachedToken(repoName string) (bool, string, error) {
+func GetCachedToken(imageName string, imageTag string) (bool, string, error) {
 	if pathExists(tokenPath) {
-		token, err := getTokenFromCache(repoName)
+		token, err := getTokenFromCache(imageName)
 		if err != nil {
 			return false, "", nil
 		}
-		if isTokenValid(repoName, token) {
+		if isTokenValid(imageName, imageTag, token) {
 			return true, token, nil
 		}
 	} else {
@@ -39,7 +39,7 @@ func GetCachedToken(repoName string) (bool, string, error) {
 	return false, "", nil
 }
 
-func FillCache(repoName string, token string) error {
+func FillCache(imageName string, token string) error {
 	if !pathExists(tokenPath) {
 		if err := createTokenFile(); err != nil {
 			log.Fatalln(err)
@@ -51,27 +51,27 @@ func FillCache(repoName string, token string) error {
 		return err
 	}
 
-	repoExists, repoIndex := repositoryIsInCache(repoName, tokens)
+	repoExists, repoIndex := repositoryIsInCache(imageName, tokens)
 	if repoExists {
 		tokens.Tokens[repoIndex].Token = token // renew the token
 	} else {
-		addTokenToCache(repoName, token, tokens)
+		addTokenToCache(imageName, token, tokens)
 	}
 	writeTokensToCache(*tokens)
 	return nil
 }
 
-func addTokenToCache(repoName string, token string, tokens *TokenStore) {
+func addTokenToCache(imageName string, token string, tokens *TokenStore) {
 	// create the repository in the file and save token
-	newToken := TokenItem{Repository: repoName, Token: token}
+	newToken := TokenItem{Repository: imageName, Token: token}
 	updatedTokens := append(tokens.Tokens, newToken)
 	tokens.Tokens = updatedTokens
 }
 
-func repositoryIsInCache(repoName string, tokens *TokenStore) (bool, int) {
+func repositoryIsInCache(imageName string, tokens *TokenStore) (bool, int) {
 	if len(tokens.Tokens) > 0 {
 		for index, repo := range tokens.Tokens {
-			if repoName == repo.Repository {
+			if imageName == repo.Repository {
 				return true, index
 			}
 		}
@@ -97,12 +97,12 @@ func createTokenFile() error {
 	return nil
 }
 
-func getTokenFromCache(repoName string) (string, error) {
+func getTokenFromCache(imageNameTag string) (string, error) {
 	tokens, err := readTokensFromCache()
 	if err != nil {
 		return "", err
 	}
-	repoExists, repoIndex := repositoryIsInCache(repoName, tokens)
+	repoExists, repoIndex := repositoryIsInCache(imageNameTag, tokens)
 	if repoExists {
 		return tokens.Tokens[repoIndex].Token, nil
 	}
@@ -132,19 +132,20 @@ func writeTokensToCache(tokens TokenStore) {
 	if err := os.WriteFile(tokenPath, tokenStoreMarshalled, 0644); err != nil {
 		log.Fatalln("Could not write to cache/tokens.json")
 	}
-
 }
 
-func isTokenValid(repoName string, token string) bool {
-	acceptList := [7]string{"application/vnd.docker.distribution.manifest.v1+json",
+func isTokenValid(imageName string, imageTag string, token string) bool {
+	acceptList := [7]string{
+		"application/vnd.docker.distribution.manifest.v1+json",
 		"application/vnd.docker.distribution.manifest.v2+json",
 		"application/vnd.docker.distribution.manifest.list.v2+json",
 		"application/vnd.docker.container.image.v1+json",
 		"application/vnd.docker.image.rootfs.diff.tar.gzip",
 		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-		"application/vnd.docker.plugin.v1+json"}
+		"application/vnd.docker.plugin.v1+json",
+	}
 
-	url := "https://registry-1.docker.io/v2/library/" + repoName + "/manifests/latest"
+	url := "https://registry-1.docker.io/v2/library/" + imageName + "/manifests/" + imageTag
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("HEAD", url, nil)

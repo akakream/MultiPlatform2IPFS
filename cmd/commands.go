@@ -6,13 +6,14 @@ package cmd
 import (
 	"context"
 	"errors"
+	"strings"
+
+	"github.com/joho/godotenv"
+	"github.com/spf13/cobra"
 
 	registry "github.com/akakream/MultiPlatform2IPFS/internal/registry"
 	"github.com/akakream/MultiPlatform2IPFS/server"
 	"github.com/akakream/MultiPlatform2IPFS/utils"
-
-	"github.com/joho/godotenv"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -60,7 +61,8 @@ MultiPlatform2IPFS copy busybox:latest .`,
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		registry.CopyImage(context.TODO(), args[0])
+		imageNameTag := strings.Split(args[0], ":")
+		registry.CopyImage(context.TODO(), imageNameTag[0], imageNameTag[1])
 	},
 }
 
