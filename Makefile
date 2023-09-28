@@ -3,14 +3,14 @@
 BUILD_NAME = multiplatform2ipfs
 BUILD_DIR = $(PWD)/bin
 
+build:
+	@go build -o $(BUILD_DIR)/$(BUILD_NAME)
+
 clean.bin:
 	rm -rf $(BUILD_DIR)/*
 
 clean.export:
 	rm -rf ./export/*
-
-build:
-	@go build -o $(BUILD_DIR)/$(BUILD_NAME)
 
 run:
 	@$(BUILD_DIR)/$(BUILD_NAME) server --port=3002

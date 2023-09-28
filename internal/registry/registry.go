@@ -94,13 +94,24 @@ func downloadImage(imageName string, imageTag string) error {
 	if err != nil {
 		log.Println("For the provided repository name, there is no Fat Manifest.")
 		log.Print(err)
-		err = getManifestWithLayers(
+		manifestRaw, err := getManifestWithLayers(
 			imageName,
 			"latest",
 			dir_manifests,
 			dir_blobs,
 			token,
 			&downloadWG,
+		)
+		if err != nil {
+			return err
+		}
+		imageManifestSha256, err := fs.Sha256File(filepath.Join(dir_manifests, "latest"))
+		if err != nil {
+			return err
+		}
+		err = fs.WriteBytesToFile(
+			filepath.Join(dir_manifests, "sha256:"+imageManifestSha256),
+			manifestRaw,
 		)
 		if err != nil {
 			return err
@@ -112,7 +123,7 @@ func downloadImage(imageName string, imageTag string) error {
 		}
 
 		for _, manifestValue := range fatManifest.Manifests {
-			getManifestWithLayers(imageName, manifestValue.Digest, dir_manifests, dir_blobs, token, &downloadWG)
+			_, err = getManifestWithLayers(imageName, manifestValue.Digest, dir_manifests, dir_blobs, token, &downloadWG)
 		}
 	}
 
@@ -127,25 +138,25 @@ func getManifestWithLayers(
 	dir_blobs string,
 	token string,
 	downloadWG *sync.WaitGroup,
-) error {
+) ([]byte, error) {
 	manifest, manifestRaw, err := getManifest(imageName, manifestDigest, token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = fs.WriteBytesToFile(filepath.Join(dir_manifests, manifestDigest), manifestRaw)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	config, err := getConfig(imageName, manifest.Config.Digest, token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = fs.WriteBytesToFile(filepath.Join(dir_blobs, manifest.Config.Digest), config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, layerValue := range manifest.Layers {
@@ -159,7 +170,7 @@ func getManifestWithLayers(
 			downloadWG,
 		)
 	}
-	return nil
+	return nil, nil
 }
 
 func uploadImage() (string, error) {
