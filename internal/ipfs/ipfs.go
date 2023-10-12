@@ -18,8 +18,18 @@ func Add(dirPath string, willPin bool) (string, error) {
 	return cid, nil
 }
 
+func Pin(cid string) error {
+	// Where your local node is running on localhost:5001
+	sh := shell.NewShell("localhost:5001")
+	err := sh.Pin(cid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func DeamonIsUp() bool {
 	sh := shell.NewShell("localhost:5001")
-    deamonIsUp := sh.IsUp()
-    return deamonIsUp
+	deamonIsUp := sh.IsUp()
+	return deamonIsUp
 }

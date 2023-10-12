@@ -79,6 +79,7 @@ func (s *Server) Start() {
 	// Publish a message to a topic
 	r.Get("/health", makeHTTPHandler(s.handleHealth))
 	r.Post("/image", makeHTTPHandler(s.handleCopy))
+	r.Post("/pin/{cid}", makeHTTPHandler(s.handlePin))
 
 	go s.listenShutdown()
 
@@ -143,6 +144,33 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) error {
 		Name: imageName,
 		Tag:  imageTag,
 		Cid:  cid,
+	}
+
+	return writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) error {
+	cidParam := chi.URLParam(r, "cid")
+
+	// Logic
+	err := ipfs.Pin(cidParam)
+	if err != nil {
+		resp := struct {
+			Status string `json:"status"`
+			Cid    string `json:"cid"`
+		}{
+			Status: "OK",
+			Cid:    cidParam,
+		}
+		return writeJSON(w, http.StatusInternalServerError, resp)
+	}
+
+	resp := struct {
+		Status string `json:"status"`
+		Cid    string `json:"cid"`
+	}{
+		Status: "NOT OK",
+		Cid:    cidParam,
 	}
 
 	return writeJSON(w, http.StatusOK, resp)
